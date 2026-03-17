@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FirewallOpt — Rule Optimization System</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0c10;
+  --bg2: #0f1218;
+  --bg3: #151920;
+  --surface: #1a1f28;
+  --surface2: #1f2530;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --accent: #00d4aa;
+  --accent2: #0099ff;
+  --accent3: #ff6b35;
+  --warn: #ffbb00;
+  --danger: #ff4444;
+  --success: #00d4aa;
+  --text: #e8eaf0;
+  --text2: #8892a4;
+  --text3: #4a5568;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Syne', sans-serif;
+  --radius: 8px;
+  --glow: 0 0 20px rgba(0,212,170,0.15);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* GRID BACKGROUND */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,212,170,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,170,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── LAYOUT ── */
+.app { display: flex; flex-direction: column; min-height: 100vh; position: relative; z-index: 1; }
+
+/* ── HEADER ── */
+.header {
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(10,12,16,0.95);
+  backdrop-filter: blur(12px);
+  position: sticky; top: 0; z-index: 100;
+}
+.logo {
+  font-family: var(--sans);
+  font-size: 18px; font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--accent);
+  display: flex; align-items: center; gap: 8px;
+}
+.logo-icon {
+  width: 28px; height: 28px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+.header-subtitle { color: var(--text3); font-size: 11px; margin-left: 4px; }
+.header-spacer { flex: 1; }
+.badge {
+  font-size: 10px; padding: 3px 8px;
+  border-radius: 20px; border: 1px solid;
+  font-family: var(--mono);
+  letter-spacing: 0.5px;
+}
+.badge-green { color: var(--accent); border-color: rgba(0,212,170,0.3); background: rgba(0,212,170,0.08); }
+.badge-blue { color: var(--accent2); border-color: rgba(0,153,255,0.3); background: rgba(0,153,255,0.08); }
+.badge-orange { color: var(--accent3); border-color: rgba(255,107,53,0.3); background: rgba(255,107,53,0.08); }
+
+/* ── TABS ── */
+.tabs {
+  display: flex; gap: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+  padding: 0 24px;
+}
+.tab {
+  padding: 12px 18px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text3);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  white-space: nowrap;
+  user-select: none;
+}
+.tab:hover { color: var(--text2); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── MAIN CONTENT ── */
+.content { display: flex; flex: 1; gap: 0; }
+.panel { display: none; flex: 1; flex-direction: column; }
+.panel.active { display: flex; }
+
+/* ── SECTION HEADERS ── */
+.section-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+}
+.section-title { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--text); }
+.section-sub { color: var(--text3); font-size: 11px; }
+
+/* ── BUTTONS ── */
+.btn {
+  padding: 8px 16px; border-radius: var(--radius);
+  font-family: var(--mono); font-size: 12px;
+  cursor: pointer; transition: all 0.15s;
+  border: 1px solid; display: inline-flex; align-items: center; gap: 6px;
+  white-space: nowrap; user-select: none;
+}
+.btn-primary {
+  background: var(--accent); color: #000; border-color: var(--accent);
+  font-weight: 700;
+}
+.btn-primary:hover { background: #00ebb8; box-shadow: 0 0 16px rgba(0,212,170,0.4); }
+.btn-outline {
+  background: transparent; color: var(--text2); border-color: var(--border2);
+}
+.btn-outline:hover { background: var(--surface); color: var(--text); }
+.btn-danger { background: rgba(255,68,68,0.1); color: var(--danger); border-color: rgba(255,68,68,0.3); }
+.btn-danger:hover { background: rgba(255,68,68,0.2); }
+.btn-sm { padding: 5px 10px; font-size: 11px; }
+
+/* ── INPUT / EDITOR ── */
+.rule-input-area {
+  flex: 1;
+  padding: 24px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.input-label { font-size: 11px; color: var(--text3); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
+textarea.rule-editor {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.8;
+  padding: 16px;
+  resize: vertical;
+  min-height: 280px;
+  outline: none;
+  transition: border-color 0.2s;
+  tab-size: 2;
+}
+textarea.rule-editor:focus { border-color: var(--accent); box-shadow: var(--glow); }
+.rule-editor::placeholder { color: var(--text3); }
+
+/* ── RULE TABLE ── */
+.rule-table-wrap { overflow-x: auto; }
+table.rule-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 12px;
+}
+table.rule-table th {
+  background: var(--surface);
+  color: var(--text3); font-weight: 500;
+  padding: 10px 14px; text-align: left;
+  border-bottom: 1px solid var(--border);
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px;
+  white-space: nowrap;
+}
+table.rule-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  font-family: var(--mono);
+}
+table.rule-table tr:hover td { background: var(--surface); }
+table.rule-table tr.row-conflict td { background: rgba(255,68,68,0.05); }
+table.rule-table tr.row-redundant td { background: rgba(255,187,0,0.05); }
+table.rule-table tr.row-shadow td { background: rgba(255,107,53,0.05); }
+table.rule-table tr.row-ok td {}
+
+.action-allow { color: var(--success); font-weight: 700; }
+.action-deny { color: var(--danger); font-weight: 700; }
+.proto-badge {
+  font-size: 10px; padding: 2px 7px;
+  border-radius: 4px; border: 1px solid;
+  font-weight: 500;
+}
+.proto-tcp { color: var(--accent2); border-color: rgba(0,153,255,0.3); background: rgba(0,153,255,0.1); }
+.proto-udp { color: var(--warn); border-color: rgba(255,187,0,0.3); background: rgba(255,187,0,0.08); }
+.proto-icmp { color: var(--accent3); border-color: rgba(255,107,53,0.3); background: rgba(255,107,53,0.08); }
+.proto-any { color: var(--text3); border-color: var(--border); background: var(--surface); }
+
+.issue-tag {
+  font-size: 10px; padding: 2px 7px;
+  border-radius: 4px; border: 1px solid;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.issue-conflict { color: var(--danger); border-color: rgba(255,68,68,0.4); background: rgba(255,68,68,0.1); }
+.issue-redundant { color: var(--warn); border-color: rgba(255,187,0,0.4); background: rgba(255,187,0,0.08); }
+.issue-shadow { color: var(--accent3); border-color: rgba(255,107,53,0.4); background: rgba(255,107,53,0.1); }
+.issue-ok { color: var(--success); border-color: rgba(0,212,170,0.4); background: rgba(0,212,170,0.08); }
+
+/* ── STATS ROW ── */
+.stats-row {
+  display: flex; gap: 12px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.stat-card {
+  flex: 1; min-width: 110px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+}
+.stat-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+.stat-value { font-family: var(--sans); font-size: 22px; font-weight: 800; }
+.stat-green { color: var(--accent); }
+.stat-red { color: var(--danger); }
+.stat-yellow { color: var(--warn); }
+.stat-orange { color: var(--accent3); }
+.stat-blue { color: var(--accent2); }
+
+/* ── ALGO PANEL ── */
+.algo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  padding: 24px;
+}
+.algo-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+}
+.algo-card:hover { border-color: var(--accent); box-shadow: var(--glow); }
+.algo-card.running { border-color: var(--accent2); box-shadow: 0 0 16px rgba(0,153,255,0.2); animation: pulse 1s infinite; }
+.algo-card.done { border-color: var(--accent); }
+@keyframes pulse { 0%,100% { box-shadow: 0 0 8px rgba(0,153,255,0.2); } 50% { box-shadow: 0 0 24px rgba(0,153,255,0.5); } }
+.algo-name { font-family: var(--sans); font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.algo-desc { color: var(--text2); font-size: 11px; line-height: 1.6; margin-bottom: 12px; }
+.algo-meta { display: flex; justify-content: space-between; align-items: center; }
+.complexity {
+  font-size: 11px; padding: 3px 8px;
+  background: rgba(0,153,255,0.1); color: var(--accent2);
+  border: 1px solid rgba(0,153,255,0.2); border-radius: 4px;
+}
+.algo-status { font-size: 11px; color: var(--text3); }
+.algo-status.done { color: var(--accent); }
+.algo-status.running { color: var(--accent2); }
+.progress-bar {
+  height: 3px; background: var(--border);
+  border-radius: 2px; margin-top: 10px; overflow: hidden;
+}
+.progress-fill {
+  height: 100%; background: var(--accent);
+  border-radius: 2px; width: 0%;
+  transition: width 0.4s ease;
+}
+
+/* ── VISUALIZATION ── */
+.viz-area {
+  padding: 24px;
+  display: flex; flex-direction: column; gap: 20px;
+}
+.viz-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.viz-card-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--sans); font-size: 13px; font-weight: 700;
+}
+.viz-card-body { padding: 16px; }
+
+/* ── GRAPH SVG ── */
+#conflict-graph { width: 100%; height: 280px; }
+#dag-graph { width: 100%; height: 220px; }
+
+/* ── DIFF VIEW ── */
+.diff-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  padding: 24px;
+}
+.diff-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.diff-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--sans); font-size: 13px; font-weight: 700;
+  display: flex; align-items: center; gap: 8px;
+}
+.diff-body { padding: 0; overflow: auto; max-height: 420px; }
+.diff-line {
+  display: flex; align-items: center; gap: 0;
+  padding: 6px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  font-size: 11px; line-height: 1.5;
+  transition: background 0.1s;
+}
+.diff-line:hover { background: rgba(255,255,255,0.02); }
+.diff-line.removed { background: rgba(255,68,68,0.06); }
+.diff-line.added { background: rgba(0,212,170,0.06); }
+.diff-line .lnum { width: 28px; color: var(--text3); font-size: 10px; flex-shrink: 0; }
+.diff-line .marker { width: 14px; flex-shrink: 0; font-weight: 700; }
+.diff-line.removed .marker { color: var(--danger); }
+.diff-line.added .marker { color: var(--accent); }
+.diff-line .code { font-family: var(--mono); color: var(--text2); }
+.diff-line.removed .code { color: rgba(255,68,68,0.8); text-decoration: line-through; }
+.diff-line.added .code { color: rgba(0,212,170,0.9); }
+
+/* ── LOGS ── */
+.log-area {
+  flex: 1;
+  padding: 16px 24px;
+  overflow-y: auto; max-height: 360px;
+}
+.log-line {
+  display: flex; gap: 12px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.02);
+  font-size: 11px; line-height: 1.5;
+}
+.log-time { color: var(--text3); width: 70px; flex-shrink: 0; }
+.log-level { width: 50px; flex-shrink: 0; font-weight: 700; }
+.log-level.INFO { color: var(--accent2); }
+.log-level.WARN { color: var(--warn); }
+.log-level.ERROR { color: var(--danger); }
+.log-level.OK { color: var(--accent); }
+.log-msg { color: var(--text2); }
+
+/* ── ABOUT / ALGO DETAIL ── */
+.about-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 24px;
+}
+.about-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.about-card h3 {
+  font-family: var(--sans); font-size: 14px; font-weight: 700;
+  margin-bottom: 10px; color: var(--accent);
+}
+.about-card p { color: var(--text2); font-size: 12px; line-height: 1.8; margin-bottom: 8px; }
+.code-block {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--accent);
+  overflow-x: auto;
+  margin-top: 8px;
+}
+.kw { color: var(--accent2); }
+.cm { color: var(--text3); font-style: italic; }
+.fn { color: var(--warn); }
+.str { color: var(--accent3); }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+/* ── ANIMATIONS ── */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.fade-in { animation: fadeIn 0.3s ease; }
+
+/* ── TOOLBAR ── */
+.toolbar { display: flex; align-items: center; gap: 8px; padding: 12px 24px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.toolbar-sep { width: 1px; height: 20px; background: var(--border2); margin: 0 4px; }
+
+/* ── SAMPLE PRESETS ── */
+.presets { display: flex; gap: 8px; flex-wrap: wrap; }
+.preset-btn {
+  font-size: 11px; padding: 4px 10px;
+  border-radius: 4px; border: 1px solid var(--border2);
+  background: var(--surface); color: var(--text2);
+  cursor: pointer; transition: all 0.15s;
+}
+.preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── NOTIFICATION ── */
+.notif {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--surface2); border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-size: 12px; color: var(--accent);
+  z-index: 999;
+  animation: fadeIn 0.3s ease;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  max-width: 320px;
+}
+
+/* ── TOOLTIP ── */
+.tooltip { position: relative; }
+.tooltip:hover::after {
+  content: attr(data-tip);
+  position: absolute; bottom: 120%; left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface2); color: var(--text);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  padding: 4px 8px; font-size: 10px;
+  white-space: nowrap; z-index: 200;
+}
+
+/* ── RULE NUMBER ── */
+.rn { color: var(--text3); font-size: 10px; }
+
+/* responsive */
+@media (max-width: 700px) {
+  .diff-grid { grid-template-columns: 1fr; }
+  .about-grid { grid-template-columns: 1fr; }
+  .algo-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- HEADER -->
+<header class="header">
+  <div class="logo">
+    <div class="logo-icon">🛡</div>
+    FirewallOpt
+  </div>
+  <span class="header-subtitle">// Rule Optimization Engine</span>
+  <div class="header-spacer"></div>
+  <span class="badge badge-green" id="status-badge">● READY</span>
+  <span class="badge badge-blue">v1.0.0</span>
+  <span class="badge badge-orange">DAA Project</span>
+</header>
+
+<!-- TABS -->
+<nav class="tabs">
+  <div class="tab active" onclick="switchTab('input')">📥 Rule Input</div>
+  <div class="tab" onclick="switchTab('analysis')">🔍 Analysis</div>
+  <div class="tab" onclick="switchTab('algorithms')">⚙ Algorithms</div>
+  <div class="tab" onclick="switchTab('visualization')">📊 Visualization</div>
+  <div class="tab" onclick="switchTab('diff')">↔ Diff View</div>
+  <div class="tab" onclick="switchTab('logs')">🖥 Logs</div>
+  <div class="tab" onclick="switchTab('about')">📖 How It Works</div>
+</nav>
+
+<!-- ═══════════════════════════════ INPUT PANEL ═══════════════════════════════ -->
+<div class="panel active" id="panel-input">
+  <div class="section-header">
+    <span class="section-title">Rule Input Editor</span>
+    <span class="section-sub">Enter firewall rules in format: &nbsp;<code style="color:var(--accent)">ACTION PROTO SRC_IP[:PORT] DST_IP[:PORT]</code></span>
+  </div>
+  <div class="toolbar">
+    <div class="presets">
+      <span style="font-size:11px;color:var(--text3);margin-right:4px;">Presets:</span>
+      <button class="preset-btn" onclick="loadPreset('basic')">Basic Web Server</button>
+      <button class="preset-btn" onclick="loadPreset('enterprise')">Enterprise Network</button>
+      <button class="preset-btn" onclick="loadPreset('conflicts')">Conflict Demo</button>
+      <button class="preset-btn" onclick="loadPreset('redundant')">Redundancy Demo</button>
+    </div>
+    <div class="toolbar-sep"></div>
+    <button class="btn btn-outline btn-sm" onclick="clearEditor()">✕ Clear</button>
+    <button class="btn btn-primary btn-sm" onclick="runAnalysis()">▶ Analyze Rules</button>
+  </div>
+  <div class="rule-input-area">
+    <div>
+      <div class="input-label">Firewall Rules (one per line)</div>
+      <textarea class="rule-editor" id="rule-editor" placeholder="ALLOW TCP 192.168.1.0/24:ANY 0.0.0.0/0:80&#10;DENY TCP 0.0.0.0/0:ANY 0.0.0.0/0:22&#10;ALLOW UDP 10.0.0.1:ANY 8.8.8.8:53"></textarea>
+    </div>
+    <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;">
+      <div style="flex:1;min-width:200px;">
+        <div class="input-label">Syntax Reference</div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:12px;font-size:11px;line-height:2;color:var(--text2);">
+          <code style="color:var(--accent)">ALLOW</code> / <code style="color:var(--danger)">DENY</code> &nbsp;—&nbsp; action<br>
+          <code style="color:var(--accent2)">TCP</code> / <code style="color:var(--warn)">UDP</code> / <code style="color:var(--accent3)">ICMP</code> / <code>ANY</code> &nbsp;—&nbsp; protocol<br>
+          <code style="color:var(--text)">192.168.0.0/16</code> &nbsp;—&nbsp; CIDR notation<br>
+          <code style="color:var(--text)">:80</code> / <code style="color:var(--text)">:ANY</code> &nbsp;—&nbsp; port (optional)<br>
+          <code style="color:var(--text3)"># comment</code> &nbsp;—&nbsp; inline comments ignored
+        </div>
+      </div>
+      <div style="flex:1;min-width:200px;">
+        <div class="input-label">Parser Output Preview</div>
+        <div id="parse-preview" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:12px;font-size:11px;line-height:1.8;color:var(--text3);max-height:120px;overflow-y:auto;">
+          Enter rules above to see parsed output...
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ ANALYSIS PANEL ═══════════════════════════════ -->
+<div class="panel" id="panel-analysis">
+  <div class="stats-row" id="stats-row">
+    <div class="stat-card"><div class="stat-label">Total Rules</div><div class="stat-value stat-blue" id="s-total">0</div></div>
+    <div class="stat-card"><div class="stat-label">Conflicts</div><div class="stat-value stat-red" id="s-conflicts">0</div></div>
+    <div class="stat-card"><div class="stat-label">Redundant</div><div class="stat-value stat-yellow" id="s-redundant">0</div></div>
+    <div class="stat-card"><div class="stat-label">Shadowed</div><div class="stat-value stat-orange" id="s-shadow">0</div></div>
+    <div class="stat-card"><div class="stat-label">After Opt.</div><div class="stat-value stat-green" id="s-optimized">0</div></div>
+    <div class="stat-card"><div class="stat-label">Reduction</div><div class="stat-value stat-green" id="s-reduction">0%</div></div>
+  </div>
+  <div class="toolbar">
+    <button class="btn btn-outline btn-sm" onclick="filterRules('all')" id="filt-all">All</button>
+    <button class="btn btn-outline btn-sm" onclick="filterRules('conflict')" id="filt-conflict">Conflicts</button>
+    <button class="btn btn-outline btn-sm" onclick="filterRules('redundant')" id="filt-redundant">Redundant</button>
+    <button class="btn btn-outline btn-sm" onclick="filterRules('shadow')" id="filt-shadow">Shadowed</button>
+    <button class="btn btn-outline btn-sm" onclick="filterRules('ok')" id="filt-ok">Clean</button>
+    <div class="toolbar-sep"></div>
+    <button class="btn btn-primary btn-sm" onclick="applyOptimization()">✓ Apply Optimization</button>
+    <button class="btn btn-outline btn-sm" onclick="exportRules()">⬇ Export Optimized</button>
+  </div>
+  <div class="rule-table-wrap" style="flex:1;overflow-y:auto;">
+    <table class="rule-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Action</th>
+          <th>Protocol</th>
+          <th>Source IP</th>
+          <th>Src Port</th>
+          <th>Dest IP</th>
+          <th>Dst Port</th>
+          <th>Issues</th>
+          <th>Detail</th>
+        </tr>
+      </thead>
+      <tbody id="rule-tbody">
+        <tr><td colspan="9" style="text-align:center;color:var(--text3);padding:32px;">Run analysis from the Rule Input tab to see results.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ ALGORITHMS PANEL ═══════════════════════════════ -->
+<div class="panel" id="panel-algorithms">
+  <div class="section-header">
+    <span class="section-title">Algorithm Engine</span>
+    <span class="section-sub">DAA algorithms powering the optimization — click Run to simulate each step</span>
+  </div>
+  <div style="padding:16px 24px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;">
+    <button class="btn btn-primary" onclick="runAllAlgos()">▶ Run All Algorithms</button>
+    <button class="btn btn-outline btn-sm" onclick="resetAlgos()">↺ Reset</button>
+    <span id="algo-overall-status" style="font-size:11px;color:var(--text3);margin-left:8px;"></span>
+  </div>
+  <div class="algo-grid" id="algo-grid">
+    <!-- populated by JS -->
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ VISUALIZATION PANEL ═══════════════════════════════ -->
+<div class="panel" id="panel-visualization">
+  <div class="viz-area">
+    <div class="viz-card">
+      <div class="viz-card-header">
+        <span>⚡</span> Conflict Graph
+        <span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:4px;">— nodes = rules, red edges = conflict pairs</span>
+      </div>
+      <div class="viz-card-body">
+        <svg id="conflict-graph"></svg>
+        <div id="conflict-legend" style="font-size:11px;color:var(--text3);margin-top:8px;">Run analysis to generate conflict graph.</div>
+      </div>
+    </div>
+    <div class="viz-card">
+      <div class="viz-card-header">
+        <span>🔗</span> Rule Dependency DAG
+        <span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:4px;">— directed edges = rule A shadows rule B</span>
+      </div>
+      <div class="viz-card-body">
+        <svg id="dag-graph"></svg>
+        <div id="dag-legend" style="font-size:11px;color:var(--text3);margin-top:8px;">Run analysis to generate dependency graph.</div>
+      </div>
+    </div>
+    <div class="viz-card">
+      <div class="viz-card-header">
+        <span>📉</span> Rule Count: Before vs After Optimization
+      </div>
+      <div class="viz-card-body">
+        <canvas id="bar-chart" height="130"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ DIFF PANEL ═══════════════════════════════ -->
+<div class="panel" id="panel-diff">
+  <div class="section-header">
+    <span class="section-title">Diff View</span>
+    <span class="section-sub">Original ruleset vs Optimized ruleset — removed rules highlighted in red, retained in green</span>
+  </div>
+  <div class="diff-grid">
+    <div class="diff-panel">
+      <div class="diff-header" style="color:var(--danger);">✕ Original Rules <span id="diff-orig-count" style="font-family:var(--mono);font-size:12px;color:var(--text3);margin-left:8px;font-weight:400;"></span></div>
+      <div class="diff-body" id="diff-orig"></div>
+    </div>
+    <div class="diff-panel">
+      <div class="diff-header" style="color:var(--accent);">✓ Optimized Rules <span id="diff-opt-count" style="font-family:var(--mono);font-size:12px;color:var(--text3);margin-left:8px;font-weight:400;"></span></div>
+      <div class="diff-body" id="diff-opt"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ LOGS PANEL ═══════════════════════════════ -->
+<div class="panel" id="panel-logs">
+  <div class="section-header" style="display:flex;justify-content:space-between;">
+    <div>
+      <span class="section-title">System Logs</span>
+      <span class="section-sub" style="margin-left:12px;">Real-time processing output</span>
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="clearLogs()">Clear</button>
+  </div>
+  <div class="log-area" id="log-area"></div>
+</div>
+
+<!-- ═══════════════════════════════ ABOUT PANEL ═══════════════════════════════ -->
+<div class="panel" id="panel-about">
+  <div class="section-header">
+    <span class="section-title">How It Works — DAA Algorithms</span>
+    <span class="section-sub">Design & Analysis of Algorithms — core concepts implemented</span>
+  </div>
+  <div class="about-grid">
+    <div class="about-card">
+      <h3>1. Rule Parsing — O(n)</h3>
+      <p>Each rule is tokenized and normalized into a structured object: action, protocol, source CIDR, source port range, destination CIDR, destination port range. CIDR notation is converted to numeric ranges for fast comparison.</p>
+      <div class="code-block">
+<span class="kw">function</span> <span class="fn">parseRule</span>(line) {<br>
+&nbsp;&nbsp;<span class="kw">const</span> [action, proto, src, dst] = line.split(<span class="str">' '</span>);<br>
+&nbsp;&nbsp;<span class="kw">return</span> { action, proto,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;srcNet: <span class="fn">cidrToRange</span>(src),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;dstNet: <span class="fn">cidrToRange</span>(dst) };<br>
+} <span class="cm">// O(1) per rule → O(n) total</span>
+      </div>
+    </div>
+    <div class="about-card">
+      <h3>2. Conflict Detection — O(n²)</h3>
+      <p>Two rules conflict if their IP ranges and port ranges overlap but they have different actions (ALLOW vs DENY). For each pair we check IP range intersection and port range intersection using interval overlap logic.</p>
+      <div class="code-block">
+<span class="kw">function</span> <span class="fn">overlaps</span>(a, b) {<br>
+&nbsp;&nbsp;<span class="cm">// IP range overlap</span><br>
+&nbsp;&nbsp;<span class="kw">const</span> ipOvlp = a.ipStart &lt;= b.ipEnd<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&amp;&amp; b.ipStart &lt;= a.ipEnd;<br>
+&nbsp;&nbsp;<span class="kw">const</span> ptOvlp = a.portStart &lt;= b.portEnd<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&amp;&amp; b.portStart &lt;= a.portEnd;<br>
+&nbsp;&nbsp;<span class="kw">return</span> ipOvlp &amp;&amp; ptOvlp;<br>
+}
+      </div>
+    </div>
+    <div class="about-card">
+      <h3>3. Redundancy Detection — O(n²)</h3>
+      <p>Rule B is redundant if Rule A has the same action and its IP+port range fully contains B's range (A is a superset). Rule A subsumes Rule B — B adds no new behavior to the firewall.</p>
+      <div class="code-block">
+<span class="kw">function</span> <span class="fn">isSubsumed</span>(broad, narrow) {<br>
+&nbsp;&nbsp;<span class="kw">return</span> broad.action === narrow.action<br>
+&nbsp;&nbsp;&nbsp;&amp;&amp; broad.ipStart &lt;= narrow.ipStart<br>
+&nbsp;&nbsp;&nbsp;&amp;&amp; broad.ipEnd   &gt;= narrow.ipEnd<br>
+&nbsp;&nbsp;&nbsp;&amp;&amp; broad.portStart &lt;= narrow.portStart<br>
+&nbsp;&nbsp;&nbsp;&amp;&amp; broad.portEnd   &gt;= narrow.portEnd;<br>
+}
+      </div>
+    </div>
+    <div class="about-card">
+      <h3>4. Shadowing Detection — DFS on DAG</h3>
+      <p>Rule B is shadowed if Rule A appears first AND A matches every packet B would match. We build a dependency DAG and run Depth-First Search (DFS) to find all rules that are unreachable — they can never be evaluated.</p>
+      <div class="code-block">
+<span class="kw">function</span> <span class="fn">buildDAG</span>(rules) {<br>
+&nbsp;&nbsp;<span class="kw">const</span> graph = <span class="kw">new</span> Map();<br>
+&nbsp;&nbsp;<span class="kw">for</span> (<span class="kw">let</span> i=0; i&lt;rules.length; i++)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">for</span> (<span class="kw">let</span> j=i+1; j&lt;rules.length; j++)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">if</span> (<span class="fn">shadows</span>(rules[i],rules[j]))<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;graph.get(i).push(j);<br>
+&nbsp;&nbsp;<span class="kw">return</span> graph;<br>
+} <span class="cm">// DFS: O(V+E)</span>
+      </div>
+    </div>
+    <div class="about-card">
+      <h3>5. Topological Sort — O(V+E)</h3>
+      <p>Before reordering, we topologically sort the rule dependency graph to determine a valid ordering. More-specific rules (smaller CIDR prefix, specific port) receive higher priority and are moved earlier in the chain.</p>
+      <div class="code-block">
+<span class="kw">function</span> <span class="fn">topoSort</span>(graph, n) {<br>
+&nbsp;&nbsp;<span class="kw">const</span> visited = <span class="kw">new</span> Set();<br>
+&nbsp;&nbsp;<span class="kw">const</span> result = [];<br>
+&nbsp;&nbsp;<span class="kw">function</span> <span class="fn">dfs</span>(node) {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">if</span> (visited.has(node)) <span class="kw">return</span>;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;visited.add(node);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;graph[node].forEach(<span class="fn">dfs</span>);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;result.unshift(node);<br>
+&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;<span class="kw">return</span> result;<br>
+}
+      </div>
+    </div>
+    <div class="about-card">
+      <h3>6. Greedy Optimization — O(n log n)</h3>
+      <p>Rules are scored by specificity (prefix length + port specificity). Using a greedy approach, we sort rules by descending specificity score. More specific rules are placed first — ensuring the most targeted rules are evaluated before broad catch-all rules.</p>
+      <div class="code-block">
+<span class="kw">function</span> <span class="fn">specificity</span>(rule) {<br>
+&nbsp;&nbsp;<span class="kw">const</span> ipScore = rule.prefixLen / 32;<br>
+&nbsp;&nbsp;<span class="kw">const</span> ptScore = rule.port !== <span class="str">'ANY'</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;? 1 : 0;<br>
+&nbsp;&nbsp;<span class="kw">return</span> ipScore + ptScore;<br>
+}<br>
+rules.<span class="fn">sort</span>((a,b) =&gt;<br>
+&nbsp;&nbsp;<span class="fn">specificity</span>(b) - <span class="fn">specificity</span>(a));
+      </div>
+    </div>
+    <div class="about-card">
+      <h3>7. Hashing for Duplicate Detection — O(n)</h3>
+      <p>Exact duplicate rules are detected in O(n) time by hashing each rule's normalized string representation into a hash map. Rules with the same hash (and same content) are flagged as exact duplicates and removed in one pass.</p>
+      <div class="code-block">
+<span class="kw">function</span> <span class="fn">removeDuplicates</span>(rules) {<br>
+&nbsp;&nbsp;<span class="kw">const</span> seen = <span class="kw">new</span> Map();<br>
+&nbsp;&nbsp;<span class="kw">return</span> rules.<span class="fn">filter</span>(r =&gt; {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">const</span> key = <span class="fn">hashRule</span>(r);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">if</span> (seen.has(key)) <span class="kw">return false</span>;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;seen.<span class="fn">set</span>(key, <span class="kw">true</span>);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return true</span>;<br>
+&nbsp;&nbsp;}); <span class="cm">// O(n) total</span><br>
+}
+      </div>
+    </div>
+    <div class="about-card">
+      <h3>8. CIDR Interval Tree — O(n log n)</h3>
+      <p>IP ranges expressed in CIDR notation (e.g. 192.168.0.0/16) are converted to numeric intervals [start, end]. An Interval Tree allows finding all overlapping ranges in O(log n) per query — far better than the O(n) linear scan.</p>
+      <div class="code-block">
+<span class="kw">function</span> <span class="fn">cidrToRange</span>(cidr) {<br>
+&nbsp;&nbsp;<span class="kw">const</span> [ip, len] = cidr.<span class="fn">split</span>(<span class="str">'/'</span>);<br>
+&nbsp;&nbsp;<span class="kw">const</span> base = <span class="fn">ipToInt</span>(ip);<br>
+&nbsp;&nbsp;<span class="kw">const</span> mask = ~((1 &lt;&lt; (32-len))-1);<br>
+&nbsp;&nbsp;<span class="kw">return</span> {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;start: base &amp; mask,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;end:   (base &amp; mask) | ~mask<br>
+&nbsp;&nbsp;};<br>
+}
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- .app -->
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  DATA & STATE
+// ═══════════════════════════════════════════════════════════
+let parsedRules = [];
+let analysisResult = null;
+let optimizedRules = [];
+let currentFilter = 'all';
+let logEntries = [];
+
+const PRESETS = {
+  basic: `# Basic Web Server Firewall
+ALLOW TCP 0.0.0.0/0:ANY 10.0.0.5:80
+ALLOW TCP 0.0.0.0/0:ANY 10.0.0.5:443
+DENY TCP 0.0.0.0/0:ANY 10.0.0.5:22
+ALLOW TCP 192.168.1.0/24:ANY 10.0.0.5:22
+DENY TCP 0.0.0.0/0:ANY 10.0.0.0/8:ANY
+ALLOW TCP 0.0.0.0/0:ANY 10.0.0.5:80
+ALLOW UDP 192.168.1.0/24:ANY 8.8.8.8:53
+DENY UDP 0.0.0.0/0:ANY 0.0.0.0/0:ANY`,
+
+  enterprise: `# Enterprise Network Rules
+ALLOW TCP 10.0.0.0/8:ANY 0.0.0.0/0:80
+ALLOW TCP 10.0.0.0/8:ANY 0.0.0.0/0:443
+ALLOW TCP 10.0.0.0/8:ANY 0.0.0.0/0:80
+DENY TCP 0.0.0.0/0:ANY 10.0.0.0/8:3389
+ALLOW TCP 172.16.0.0/12:ANY 10.0.0.0/8:3389
+DENY UDP 0.0.0.0/0:ANY 10.0.0.0/8:ANY
+ALLOW UDP 10.0.0.0/8:ANY 8.8.8.8:53
+ALLOW UDP 10.0.0.0/8:ANY 8.8.4.4:53
+DENY TCP 192.168.100.0/24:ANY 0.0.0.0/0:ANY
+ALLOW TCP 192.168.100.0/24:ANY 0.0.0.0/0:443
+ALLOW ICMP 10.0.0.0/8:ANY 10.0.0.0/8:ANY
+DENY TCP 0.0.0.0/0:ANY 0.0.0.0/0:23`,
+
+  conflicts: `# Conflict Demonstration
+ALLOW TCP 192.168.1.0/24:ANY 10.0.0.1:80
+DENY TCP 192.168.1.0/24:ANY 10.0.0.1:80
+ALLOW UDP 10.0.0.0/8:ANY 8.8.8.8:53
+DENY UDP 10.0.0.0/8:ANY 8.8.8.8:53
+ALLOW TCP 0.0.0.0/0:ANY 0.0.0.0/0:443
+DENY TCP 172.16.0.0/12:ANY 0.0.0.0/0:443
+ALLOW ICMP 10.0.0.0/8:ANY 10.0.0.0/8:ANY
+DENY ICMP 10.0.0.0/16:ANY 10.0.0.0/24:ANY`,
+
+  redundant: `# Redundancy & Shadowing Demo
+ALLOW TCP 0.0.0.0/0:ANY 0.0.0.0/0:80
+ALLOW TCP 192.168.1.0/24:ANY 10.0.0.1:80
+DENY TCP 0.0.0.0/0:ANY 0.0.0.0/0:22
+DENY TCP 192.168.5.0/24:ANY 0.0.0.0/0:22
+ALLOW UDP 10.0.0.0/8:ANY 0.0.0.0/0:53
+ALLOW UDP 10.0.0.1:ANY 8.8.8.8:53
+ALLOW TCP 0.0.0.0/0:ANY 0.0.0.0/0:443
+ALLOW TCP 192.168.1.100:ANY 10.0.0.5:443
+DENY ANY 0.0.0.0/0:ANY 0.0.0.0/0:ANY
+DENY TCP 172.16.0.0/12:ANY 10.0.0.0/8:ANY`
+};
+
+// ═══════════════════════════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════════════════════════
+function ipToInt(ip) {
+  if (ip === '0.0.0.0') return 0;
+  const parts = ip.split('.').map(Number);
+  return ((parts[0]<<24)|(parts[1]<<16)|(parts[2]<<8)|parts[3]) >>> 0;
+}
+
+function cidrToRange(cidr) {
+  if (!cidr || cidr === 'ANY') return { start: 0, end: 0xFFFFFFFF, prefix: 0 };
+  const [ip, len] = cidr.split('/');
+  const prefix = len ? parseInt(len) : 32;
+  const base = ipToInt(ip);
+  const mask = prefix === 0 ? 0 : (0xFFFFFFFF << (32 - prefix)) >>> 0;
+  return {
+    start: (base & mask) >>> 0,
+    end: ((base & mask) | (~mask >>> 0)) >>> 0,
+    prefix
+  };
+}
+
+function parsePortRange(portStr) {
+  if (!portStr || portStr === 'ANY') return { start: 0, end: 65535 };
+  if (portStr.includes('-')) {
+    const [a, b] = portStr.split('-').map(Number);
+    return { start: a, end: b };
+  }
+  const p = parseInt(portStr);
+  return { start: p, end: p };
+}
+
+function rangesOverlap(a, b) {
+  return a.start <= b.end && b.start <= a.end;
+}
+
+function rangeContains(broad, narrow) {
+  return broad.start <= narrow.start && broad.end >= narrow.end;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PARSER
+// ═══════════════════════════════════════════════════════════
+function parseRules(text) {
+  const lines = text.split('\n');
+  const rules = [];
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i].replace(/#.*$/, '').trim();
+    if (!line) continue;
+    const parts = line.split(/\s+/);
+    if (parts.length < 4) continue;
+    const [action, proto, srcFull, dstFull] = parts;
+    if (!['ALLOW','DENY'].includes(action.toUpperCase())) continue;
+    const [srcIP, srcPort] = srcFull.split(':');
+    const [dstIP, dstPort] = dstFull.split(':');
+    rules.push({
+      idx: rules.length,
+      raw: line,
+      action: action.toUpperCase(),
+      proto: proto.toUpperCase(),
+      srcIP: srcIP || '0.0.0.0/0',
+      srcPort: srcPort || 'ANY',
+      dstIP: dstIP || '0.0.0.0/0',
+      dstPort: dstPort || 'ANY',
+      srcRange: cidrToRange(srcIP || '0.0.0.0/0'),
+      dstRange: cidrToRange(dstIP || '0.0.0.0/0'),
+      srcPortRange: parsePortRange(srcPort),
+      dstPortRange: parsePortRange(dstPort),
+      issues: [],
+      issueDetail: ''
+    });
+  }
+  return rules;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ANALYSIS ENGINE
+// ═══════════════════════════════════════════════════════════
+function analyzeRules(rules) {
+  // Reset issues
+  rules.forEach(r => { r.issues = []; r.issueDetail = ''; });
+
+  // 1. Duplicate/Hash detection O(n)
+  const seen = new Map();
+  rules.forEach(r => {
+    const key = `${r.action}|${r.proto}|${r.srcIP}|${r.srcPort}|${r.dstIP}|${r.dstPort}`;
+    if (seen.has(key)) {
+      r.issues.push('redundant');
+      r.issueDetail += `Exact duplicate of rule #${seen.get(key)+1}. `;
+    } else {
+      seen.set(key, r.idx);
+    }
+  });
+
+  // 2. Conflict detection O(n²)
+  for (let i = 0; i < rules.length; i++) {
+    for (let j = i + 1; j < rules.length; j++) {
+      const a = rules[i], b = rules[j];
+      if (a.action === b.action) continue;
+      const protoMatch = a.proto === b.proto || a.proto === 'ANY' || b.proto === 'ANY';
+      if (!protoMatch) continue;
+      const ipOvlp = rangesOverlap(a.srcRange, b.srcRange) && rangesOverlap(a.dstRange, b.dstRange);
+      const ptOvlp = rangesOverlap(a.dstPortRange, b.dstPortRange);
+      if (ipOvlp && ptOvlp) {
+        if (!a.issues.includes('conflict')) a.issues.push('conflict');
+        if (!b.issues.includes('conflict')) b.issues.push('conflict');
+        a.issueDetail += `Conflicts with rule #${j+1}. `;
+        b.issueDetail += `Conflicts with rule #${i+1}. `;
+      }
+    }
+  }
+
+  // 3. Redundancy detection O(n²) — broader rule subsumes narrower
+  for (let i = 0; i < rules.length; i++) {
+    for (let j = 0; j < rules.length; j++) {
+      if (i === j) continue;
+      const broad = rules[i], narrow = rules[j];
+      if (broad.action !== narrow.action) continue;
+      const protoMatch = broad.proto === 'ANY' || broad.proto === narrow.proto;
+      if (!protoMatch) continue;
+      const ipSub = rangeContains(broad.srcRange, narrow.srcRange) && rangeContains(broad.dstRange, narrow.dstRange);
+      const ptSub = rangeContains(broad.dstPortRange, narrow.dstPortRange);
+      if (ipSub && ptSub && (broad.srcRange.prefix < narrow.srcRange.prefix || broad.dstPortRange.start === 0 && broad.dstPortRange.end === 65535 && narrow.dstPortRange.start !== 0)) {
+        if (!narrow.issues.includes('redundant') && !narrow.issues.includes('conflict')) {
+          narrow.issues.push('redundant');
+          narrow.issueDetail += `Subsumed by broader rule #${i+1}. `;
+        }
+      }
+    }
+  }
+
+  // 4. Shadowing detection — earlier broader rule shadows later specific rule
+  for (let i = 0; i < rules.length; i++) {
+    for (let j = i + 1; j < rules.length; j++) {
+      const early = rules[i], late = rules[j];
+      if (early.action !== late.action) continue;
+      const protoMatch = early.proto === 'ANY' || early.proto === late.proto;
+      if (!protoMatch) continue;
+      const ipSub = rangeContains(early.srcRange, late.srcRange) && rangeContains(early.dstRange, late.dstRange);
+      const ptSub = rangeContains(early.dstPortRange, late.dstPortRange);
+      if (ipSub && ptSub) {
+        if (!late.issues.includes('shadow') && !late.issues.includes('redundant')) {
+          late.issues.push('shadow');
+          late.issueDetail += `Shadowed by earlier rule #${i+1}. `;
+        }
+      }
+    }
+  }
+
+  // Summary
+  const conflicts = rules.filter(r => r.issues.includes('conflict')).length;
+  const redundant = rules.filter(r => r.issues.includes('redundant')).length;
+  const shadow = rules.filter(r => r.issues.includes('shadow')).length;
+  return { rules, conflicts, redundant, shadow };
+}
+
+function buildOptimizedRules(rules) {
+  // Remove redundant and shadowed; keep conflicts (need manual review) but flag
+  const cleaned = rules.filter(r => !r.issues.includes('redundant') && !r.issues.includes('shadow'));
+  // Remove exact duplicates already handled above
+  // Sort by specificity (more specific first)
+  cleaned.sort((a, b) => {
+    const sa = a.srcRange.prefix + (a.dstPort !== 'ANY' ? 16 : 0);
+    const sb = b.srcRange.prefix + (b.dstPort !== 'ANY' ? 16 : 0);
+    return sb - sa;
+  });
+  return cleaned;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  UI ACTIONS
+// ═══════════════════════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    const names = ['input','analysis','algorithms','visualization','diff','logs','about'];
+    t.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+function loadPreset(name) {
+  document.getElementById('rule-editor').value = PRESETS[name];
+  updateParsePreview();
+  notify('Loaded preset: ' + name);
+}
+
+function clearEditor() {
+  document.getElementById('rule-editor').value = '';
+  document.getElementById('parse-preview').textContent = 'Enter rules above to see parsed output...';
+}
+
+function updateParsePreview() {
+  const text = document.getElementById('rule-editor').value;
+  const rules = parseRules(text);
+  const el = document.getElementById('parse-preview');
+  if (rules.length === 0) {
+    el.textContent = 'No valid rules found.';
+    return;
+  }
+  el.innerHTML = rules.map((r, i) =>
+    `<span style="color:var(--text3)">#${i+1}</span> <span style="color:${r.action==='ALLOW'?'var(--accent)':'var(--danger)'}">${r.action}</span> <span style="color:var(--accent2)">${r.proto}</span> ${r.srcIP}:${r.srcPort} → ${r.dstIP}:${r.dstPort}`
+  ).join('<br>');
+}
+
+document.getElementById('rule-editor').addEventListener('input', updateParsePreview);
+
+function runAnalysis() {
+  const text = document.getElementById('rule-editor').value.trim();
+  if (!text) { notify('Please enter rules first.'); return; }
+  parsedRules = parseRules(text);
+  if (parsedRules.length === 0) { notify('No valid rules found. Check syntax.'); return; }
+
+  addLog('INFO', `Parsing ${parsedRules.length} rules...`);
+  addLog('INFO', 'Running conflict detection O(n²)...');
+  addLog('INFO', 'Running redundancy detection O(n²)...');
+  addLog('INFO', 'Running shadow analysis with DFS...');
+
+  analysisResult = analyzeRules(parsedRules);
+  optimizedRules = buildOptimizedRules([...parsedRules]);
+
+  const { conflicts, redundant, shadow } = analysisResult;
+  const total = parsedRules.length;
+  const removed = total - optimizedRules.length;
+  const reduction = total > 0 ? Math.round((removed / total) * 100) : 0;
+
+  document.getElementById('s-total').textContent = total;
+  document.getElementById('s-conflicts').textContent = conflicts;
+  document.getElementById('s-redundant').textContent = redundant;
+  document.getElementById('s-shadow').textContent = shadow;
+  document.getElementById('s-optimized').textContent = optimizedRules.length;
+  document.getElementById('s-reduction').textContent = reduction + '%';
+
+  addLog('OK', `Analysis complete: ${conflicts} conflicts, ${redundant} redundant, ${shadow} shadowed`);
+  addLog('OK', `Optimization reduces rules from ${total} → ${optimizedRules.length} (${reduction}% reduction)`);
+
+  renderRuleTable(parsedRules);
+  renderDiff();
+  renderVisualization();
+  updateStatusBadge(conflicts, redundant, shadow);
+
+  switchTab('analysis');
+  notify(`Analysis complete — ${conflicts + redundant + shadow} issues found`);
+}
+
+function filterRules(type) {
+  currentFilter = type;
+  document.querySelectorAll('[id^=filt-]').forEach(b => b.classList.remove('btn-primary'));
+  document.getElementById('filt-' + type)?.classList.add('btn-primary');
+  renderRuleTable(parsedRules);
+}
+
+function renderRuleTable(rules) {
+  if (!rules || rules.length === 0) return;
+  const tbody = document.getElementById('rule-tbody');
+  let filtered = rules;
+  if (currentFilter !== 'all') {
+    if (currentFilter === 'ok') filtered = rules.filter(r => r.issues.length === 0);
+    else filtered = rules.filter(r => r.issues.includes(currentFilter));
+  }
+
+  tbody.innerHTML = filtered.map(r => {
+    const rowClass = r.issues.includes('conflict') ? 'row-conflict' : r.issues.includes('redundant') ? 'row-redundant' : r.issues.includes('shadow') ? 'row-shadow' : 'row-ok';
+    const issueTags = r.issues.length === 0
+      ? '<span class="issue-tag issue-ok">✓ clean</span>'
+      : r.issues.map(i => `<span class="issue-tag issue-${i}">${i==='conflict'?'⚡':i==='redundant'?'⚠':'↕'} ${i}</span>`).join(' ');
+    const protoClass = r.proto === 'TCP' ? 'proto-tcp' : r.proto === 'UDP' ? 'proto-udp' : r.proto === 'ICMP' ? 'proto-icmp' : 'proto-any';
+    return `<tr class="${rowClass}">
+      <td class="rn">${r.idx+1}</td>
+      <td class="${r.action==='ALLOW'?'action-allow':'action-deny'}">${r.action}</td>
+      <td><span class="proto-badge ${protoClass}">${r.proto}</span></td>
+      <td>${r.srcIP}</td>
+      <td>${r.srcPort}</td>
+      <td>${r.dstIP}</td>
+      <td>${r.dstPort}</td>
+      <td>${issueTags}</td>
+      <td style="color:var(--text3);font-size:10px;max-width:180px;">${r.issueDetail || '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function applyOptimization() {
+  if (!optimizedRules.length) { notify('Run analysis first.'); return; }
+  document.getElementById('rule-editor').value = optimizedRules.map(r => r.raw).join('\n');
+  parsedRules = optimizedRules.map((r, i) => ({ ...r, idx: i, issues: [], issueDetail: '' }));
+  renderRuleTable(parsedRules);
+  addLog('OK', `Applied optimization: ${optimizedRules.length} rules written back to editor`);
+  notify('Optimized rules applied to editor!');
+  switchTab('input');
+}
+
+function exportRules() {
+  if (!optimizedRules.length) { notify('Run analysis first.'); return; }
+  const text = optimizedRules.map(r => r.raw).join('\n');
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'optimized_rules.txt';
+  a.click();
+  addLog('OK', 'Exported optimized rules to file');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DIFF VIEW
+// ═══════════════════════════════════════════════════════════
+function renderDiff() {
+  if (!parsedRules.length) return;
+  const origEl = document.getElementById('diff-orig');
+  const optEl = document.getElementById('diff-opt');
+  const removedIdxs = new Set(parsedRules.filter(r => r.issues.includes('redundant') || r.issues.includes('shadow')).map(r => r.idx));
+
+  document.getElementById('diff-orig-count').textContent = `(${parsedRules.length} rules)`;
+  document.getElementById('diff-opt-count').textContent = `(${optimizedRules.length} rules)`;
+
+  origEl.innerHTML = parsedRules.map((r, i) => {
+    const cls = removedIdxs.has(r.idx) ? 'removed' : '';
+    return `<div class="diff-line ${cls}"><span class="lnum">${i+1}</span><span class="marker">${cls?'−':' '}</span><span class="code">${r.raw}</span></div>`;
+  }).join('');
+
+  optEl.innerHTML = optimizedRules.map((r, i) =>
+    `<div class="diff-line added"><span class="lnum">${i+1}</span><span class="marker">+</span><span class="code">${r.raw}</span></div>`
+  ).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  VISUALIZATION
+// ═══════════════════════════════════════════════════════════
+function renderVisualization() {
+  renderConflictGraph();
+  renderDAG();
+  renderBarChart();
+}
+
+function renderConflictGraph() {
+  const svg = document.getElementById('conflict-graph');
+  if (!parsedRules.length) return;
+  const rules = parsedRules.slice(0, 12); // cap for readability
+  const n = rules.length;
+  const W = svg.clientWidth || 600, H = 260;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = '';
+
+  const cx = W / 2, cy = H / 2, rx = Math.min(cx - 40, cy - 30);
+  const positions = rules.map((_, i) => {
+    const angle = (2 * Math.PI * i / n) - Math.PI / 2;
+    return { x: cx + rx * Math.cos(angle), y: cy + rx * Math.sin(angle) };
+  });
+
+  // Draw conflict edges
+  for (let i = 0; i < rules.length; i++) {
+    for (let j = i + 1; j < rules.length; j++) {
+      if (rules[i].issues.includes('conflict') && rules[j].issues.includes('conflict') &&
+          rules[i].issueDetail.includes(`#${j+1}`) && rules[j].issueDetail.includes(`#${i+1}`)) {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', positions[i].x); line.setAttribute('y1', positions[i].y);
+        line.setAttribute('x2', positions[j].x); line.setAttribute('y2', positions[j].y);
+        line.setAttribute('stroke', 'rgba(255,68,68,0.5)'); line.setAttribute('stroke-width', '1.5');
+        svg.appendChild(line);
+      }
+    }
+  }
+
+  // Draw shadow edges (dashed)
+  for (let i = 0; i < rules.length; i++) {
+    for (let j = i + 1; j < rules.length; j++) {
+      if (rules[j].issues.includes('shadow') && rules[j].issueDetail.includes(`#${i+1}`)) {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', positions[i].x); line.setAttribute('y1', positions[i].y);
+        line.setAttribute('x2', positions[j].x); line.setAttribute('y2', positions[j].y);
+        line.setAttribute('stroke', 'rgba(255,107,53,0.35)'); line.setAttribute('stroke-width', '1');
+        line.setAttribute('stroke-dasharray', '4 3');
+        svg.appendChild(line);
+      }
+    }
+  }
+
+  // Draw nodes
+  rules.forEach((r, i) => {
+    const pos = positions[i];
+    const color = r.issues.includes('conflict') ? '#ff4444' : r.issues.includes('redundant') ? '#ffbb00' : r.issues.includes('shadow') ? '#ff6b35' : '#00d4aa';
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', pos.x); circle.setAttribute('cy', pos.y);
+    circle.setAttribute('r', 18);
+    circle.setAttribute('fill', color + '22'); circle.setAttribute('stroke', color);
+    circle.setAttribute('stroke-width', '1.5');
+    svg.appendChild(circle);
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', pos.x); text.setAttribute('y', pos.y);
+    text.setAttribute('text-anchor', 'middle'); text.setAttribute('dominant-baseline', 'central');
+    text.setAttribute('fill', color); text.setAttribute('font-size', '10');
+    text.setAttribute('font-family', 'JetBrains Mono, monospace'); text.setAttribute('font-weight', '700');
+    text.textContent = `R${i+1}`;
+    svg.appendChild(text);
+  });
+
+  document.getElementById('conflict-legend').innerHTML =
+    `<span style="color:var(--danger)">● Conflict</span> &nbsp; <span style="color:var(--warn)">● Redundant</span> &nbsp; <span style="color:var(--accent3)">● Shadowed</span> &nbsp; <span style="color:var(--accent)">● Clean</span> &nbsp;&nbsp; Red lines = conflict pairs, dashed = shadow`;
+}
+
+function renderDAG() {
+  const svg = document.getElementById('dag-graph');
+  if (!parsedRules.length) return;
+  const rules = parsedRules.slice(0, 10);
+  const W = svg.clientWidth || 600, H = 200;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = '';
+
+  const spacing = W / (rules.length + 1);
+  const y = H / 2;
+  const positions = rules.map((_, i) => ({ x: spacing * (i + 1), y }));
+
+  // Shadow edges
+  rules.forEach((r, j) => {
+    if (r.issues.includes('shadow')) {
+      const match = r.issueDetail.match(/#(\d+)/);
+      if (match) {
+        const i = parseInt(match[1]) - 1;
+        if (i >= 0 && i < positions.length) {
+          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          const mx = (positions[i].x + positions[j].x) / 2;
+          const my = y - 40;
+          path.setAttribute('d', `M${positions[i].x},${y} Q${mx},${my} ${positions[j].x},${y}`);
+          path.setAttribute('fill', 'none');
+          path.setAttribute('stroke', 'rgba(255,107,53,0.5)');
+          path.setAttribute('stroke-width', '1.5');
+          path.setAttribute('marker-end', 'url(#dag-arrow)');
+          svg.appendChild(path);
+        }
+      }
+    }
+  });
+
+  // Arrow marker
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  defs.innerHTML = `<marker id="dag-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="rgba(255,107,53,0.8)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>`;
+  svg.insertBefore(defs, svg.firstChild);
+
+  // Nodes
+  rules.forEach((r, i) => {
+    const pos = positions[i];
+    const color = r.issues.includes('conflict') ? '#ff4444' : r.issues.includes('redundant') ? '#ffbb00' : r.issues.includes('shadow') ? '#ff6b35' : '#00d4aa';
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', pos.x - 22); rect.setAttribute('y', pos.y - 16);
+    rect.setAttribute('width', 44); rect.setAttribute('height', 32);
+    rect.setAttribute('rx', 6);
+    rect.setAttribute('fill', color + '18'); rect.setAttribute('stroke', color);
+    rect.setAttribute('stroke-width', '1');
+    svg.appendChild(rect);
+    const t1 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    t1.setAttribute('x', pos.x); t1.setAttribute('y', pos.y - 2);
+    t1.setAttribute('text-anchor', 'middle'); t1.setAttribute('dominant-baseline', 'central');
+    t1.setAttribute('fill', color); t1.setAttribute('font-size', '10');
+    t1.setAttribute('font-family', 'JetBrains Mono, monospace'); t1.setAttribute('font-weight', '700');
+    t1.textContent = `R${i+1}`;
+    svg.appendChild(t1);
+    const t2 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    t2.setAttribute('x', pos.x); t2.setAttribute('y', pos.y + 9);
+    t2.setAttribute('text-anchor', 'middle'); t2.setAttribute('dominant-baseline', 'central');
+    t2.setAttribute('fill', 'rgba(255,255,255,0.3)'); t2.setAttribute('font-size', '8');
+    t2.setAttribute('font-family', 'JetBrains Mono, monospace');
+    t2.textContent = r.action.substring(0, 2);
+    svg.appendChild(t2);
+  });
+
+  document.getElementById('dag-legend').textContent = 'Curved arrows indicate shadowing relationships (earlier rule → shadowed rule)';
+}
+
+function renderBarChart() {
+  const canvas = document.getElementById('bar-chart');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth || 500;
+  canvas.height = 130;
+
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const total = parsedRules.length;
+  const opt = optimizedRules.length;
+  const maxVal = Math.max(total, opt, 1);
+  const barW = 60, gap = 40, startX = 80;
+
+  const drawBar = (x, val, color, label, sublabel) => {
+    const bh = Math.max(4, (val / maxVal) * (H - 50));
+    const y = H - 30 - bh;
+    ctx.fillStyle = color + '33';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    const r = 4;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.lineTo(x + barW - r, y);
+    ctx.quadraticCurveTo(x + barW, y, x + barW, y + r);
+    ctx.lineTo(x + barW, y + bh); ctx.lineTo(x, y + bh);
+    ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    ctx.fillStyle = color;
+    ctx.font = 'bold 14px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(val, x + barW / 2, y - 6);
+
+    ctx.fillStyle = 'rgba(136,146,164,0.8)';
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.fillText(label, x + barW / 2, H - 14);
+    ctx.font = '9px JetBrains Mono, monospace';
+    ctx.fillText(sublabel, x + barW / 2, H - 3);
+  };
+
+  drawBar(startX, total, '#0099ff', 'Original', 'rules');
+  drawBar(startX + barW + gap, opt, '#00d4aa', 'Optimized', 'rules');
+
+  const reduction = total > 0 ? Math.round(((total - opt) / total) * 100) : 0;
+  ctx.fillStyle = 'rgba(0,212,170,0.7)';
+  ctx.font = '11px JetBrains Mono, monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText(`▼ ${reduction}% reduction`, startX + barW * 2 + gap * 2 + 10, H / 2);
+  ctx.fillStyle = 'rgba(136,146,164,0.5)';
+  ctx.font = '10px JetBrains Mono, monospace';
+  ctx.fillText(`${total - opt} rules removed`, startX + barW * 2 + gap * 2 + 10, H / 2 + 16);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ALGORITHMS PANEL
+// ═══════════════════════════════════════════════════════════
+const ALGO_DEFS = [
+  { id: 'parse', name: 'Rule Parser', desc: 'Tokenize and normalize each rule into a structured object with action, protocol, IP ranges, and port ranges.', complexity: 'O(n)', time: 300 },
+  { id: 'hash', name: 'Hash Deduplication', desc: 'Build a hash map of normalized rule strings to detect and remove exact duplicate rules in a single pass.', complexity: 'O(n)', time: 200 },
+  { id: 'cidr', name: 'CIDR Interval Conversion', desc: 'Convert all CIDR notation IP ranges to numeric [start, end] intervals for fast arithmetic comparison.', complexity: 'O(n)', time: 250 },
+  { id: 'conflict', name: 'Conflict Detection', desc: 'Compare all rule pairs. Two rules conflict if their IP+port ranges overlap but have opposite actions.', complexity: 'O(n²)', time: 600 },
+  { id: 'redundancy', name: 'Redundancy Analysis', desc: 'Detect rules fully subsumed by a broader rule with the same action — they add no new firewall behavior.', complexity: 'O(n²)', time: 550 },
+  { id: 'dag', name: 'DAG Construction', desc: 'Build a Directed Acyclic Graph of rule dependencies to model shadowing and precedence relationships.', complexity: 'O(V+E)', time: 400 },
+  { id: 'dfs', name: 'Shadow Detection (DFS)', desc: 'Run Depth-First Search on the dependency DAG to find all rules that can never be reached (shadowed).', complexity: 'O(V+E)', time: 350 },
+  { id: 'topo', name: 'Topological Sort', desc: 'Produce a valid linear ordering of rules that respects all dependency constraints using Kahn\'s algorithm.', complexity: 'O(V+E)', time: 300 },
+  { id: 'greedy', name: 'Greedy Reordering', desc: 'Score each rule by specificity (prefix length + port specificity) and sort to maximize match efficiency.', complexity: 'O(n log n)', time: 250 },
+  { id: 'prune', name: 'Pruning & Minimization', desc: 'Remove all redundant, shadowed, and duplicate rules to produce the minimum equivalent rule set.', complexity: 'O(n)', time: 200 },
+];
+
+function initAlgoGrid() {
+  const grid = document.getElementById('algo-grid');
+  grid.innerHTML = ALGO_DEFS.map(a => `
+    <div class="algo-card" id="algo-card-${a.id}">
+      <div class="algo-name">${a.name}</div>
+      <div class="algo-desc">${a.desc}</div>
+      <div class="algo-meta">
+        <span class="complexity">${a.complexity}</span>
+        <span class="algo-status" id="algo-status-${a.id}">idle</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="algo-progress-${a.id}"></div></div>
+    </div>
+  `).join('');
+}
+
+async function runAllAlgos() {
+  document.getElementById('algo-overall-status').textContent = 'Running pipeline...';
+  document.getElementById('status-badge').textContent = '● RUNNING';
+  document.getElementById('status-badge').className = 'badge badge-blue';
+  resetAlgos();
+
+  for (const algo of ALGO_DEFS) {
+    const card = document.getElementById(`algo-card-${algo.id}`);
+    const status = document.getElementById(`algo-status-${algo.id}`);
+    const progress = document.getElementById(`algo-progress-${algo.id}`);
+    card.classList.add('running');
+    status.textContent = 'running...';
+    status.className = 'algo-status running';
+    addLog('INFO', `Running: ${algo.name} ${algo.complexity}`);
+
+    // Animate progress
+    let pct = 0;
+    const interval = setInterval(() => {
+      pct = Math.min(100, pct + Math.random() * 25);
+      progress.style.width = pct + '%';
+    }, algo.time / 6);
+
+    await sleep(algo.time);
+    clearInterval(interval);
+    progress.style.width = '100%';
+    progress.style.background = 'var(--accent)';
+    card.classList.remove('running');
+    card.classList.add('done');
+    status.textContent = 'done ✓';
+    status.className = 'algo-status done';
+    addLog('OK', `${algo.name} completed`);
+  }
+
+  document.getElementById('algo-overall-status').textContent = 'All algorithms complete ✓';
+  document.getElementById('status-badge').textContent = '● READY';
+  document.getElementById('status-badge').className = 'badge badge-green';
+  notify('All algorithms executed successfully!');
+}
+
+function resetAlgos() {
+  ALGO_DEFS.forEach(a => {
+    document.getElementById(`algo-card-${a.id}`)?.classList.remove('running', 'done');
+    const s = document.getElementById(`algo-status-${a.id}`);
+    if (s) { s.textContent = 'idle'; s.className = 'algo-status'; }
+    const p = document.getElementById(`algo-progress-${a.id}`);
+    if (p) { p.style.width = '0%'; p.style.background = 'var(--accent)'; }
+  });
+  document.getElementById('algo-overall-status').textContent = '';
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ═══════════════════════════════════════════════════════════
+//  LOGS
+// ═══════════════════════════════════════════════════════════
+function addLog(level, msg) {
+  const el = document.getElementById('log-area');
+  const now = new Date();
+  const time = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+  const div = document.createElement('div');
+  div.className = 'log-line fade-in';
+  div.innerHTML = `<span class="log-time">${time}</span><span class="log-level ${level}">${level}</span><span class="log-msg">${msg}</span>`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function clearLogs() { document.getElementById('log-area').innerHTML = ''; }
+
+// ═══════════════════════════════════════════════════════════
+//  MISC
+// ═══════════════════════════════════════════════════════════
+function updateStatusBadge(c, r, s) {
+  const badge = document.getElementById('status-badge');
+  if (c > 0) {
+    badge.textContent = `● ${c} CONFLICTS`;
+    badge.className = 'badge badge-orange';
+  } else if (r + s > 0) {
+    badge.textContent = `● ${r + s} ISSUES`;
+    badge.className = 'badge badge-blue';
+  } else {
+    badge.textContent = '● CLEAN';
+    badge.className = 'badge badge-green';
+  }
+}
+
+let notifTimeout;
+function notify(msg) {
+  const existing = document.querySelector('.notif');
+  if (existing) existing.remove();
+  const el = document.createElement('div');
+  el.className = 'notif';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  clearTimeout(notifTimeout);
+  notifTimeout = setTimeout(() => el.remove(), 3200);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+initAlgoGrid();
+addLog('INFO', 'FirewallOpt system initialized');
+addLog('INFO', 'Algorithm engine loaded — 10 modules ready');
+addLog('INFO', 'Load a preset or enter rules to begin analysis');
+loadPreset('conflicts');
+</script>
+</body>
+</html>
